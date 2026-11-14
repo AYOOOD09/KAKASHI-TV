@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>KAKASHI PLAYER</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <style>
+    :root {
+      --bg: #0b0b0d;
+      --surface: #141418;
+      --surface-hover: #1f1f26;
+      --primary: #e50914;
+      --primary-hover: #f40612;
+      --text: #ffffff;
+      --muted: #a3a3a3;
+      --border: rgba(255,255,255,0.08);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Cairo', sans-serif; }
+    body { background: var(--bg); color: var(--text); overflow-x: hidden; -webkit-tap-highlight-color: transparent; }
+
+    /* Navbar */
+    header {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 20px;
+      background: linear-gradient(to bottom, rgba(11,11,13,0.95), rgba(11,11,13,0));
+      transition: background 0.3s;
+    }
+    header.scrolled { background: rgba(11,11,13,0.96); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+    .brand {
+      display: flex; align-items: center; gap: 10px;
+      font-weight: 900; font-size: 1.35rem; letter-spacing: 1px; color: var(--primary);
+      text-shadow: 0 2px 12px rgba(229,9,20,0.4);
+    }
+    .brand span { color: #fff; font-weight: 700; }
+    .nav-actions { display: flex; gap: 10px; align-items: center; }
+    .btn {
+      border: none; border-radius: 6px; padding: 8px 14px; font-weight: 700;
+      cursor: pointer; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 6px;
+      transition: 0.2s;
+    }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-secondary { background: rgba(255,255,255,0.14); color: #fff; backdrop-filter: blur(6px); }
+    .btn-secondary:hover { background: rgba(255,255,255,0.24); }
+
+    /* Hero Banner */
+    .hero {
+      position: relative; height: 56vh; min-height: 360px; max-height: 520px;
+      display: flex; align-items: flex-end; padding: 32px 20px;
+      background: radial-gradient(circle at 30% 30%, #2a080c 0%, #0b0b0d 75%);
+      overflow: hidden;
+    }
+    .hero::after {
+      content: ""; position: absolute; inset: 0;
+      background: linear-gradient(to top, var(--bg) 5%, rgba(11,11,13,0.4) 60%, rgba(11,11,13,0.7) 100%);
+    }
+    .hero-content { position: relative; z-index: 2; max-width: 640px; }
+    .badge {
+      display: inline-block; background: var(--primary); color: #fff;
+      font-size: 0.75rem; font-weight: 800; padding: 3px 10px; border-radius: 4px; margin-bottom: 10px;
+    }
+    .hero h1 { font-size: 2rem; font-weight: 900; line-height: 1.2; margin-bottom: 10px; }
+    .hero p { color: var(--muted); font-size: 0.95rem; margin-bottom: 18px; line-height: 1.6; }
+    .hero-btns { display: flex; gap: 12px; flex-wrap: wrap; }
+
+    /* Search & Filter */
+    .controls { padding: 10px 20px 0; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .search-box {
+      flex: 1; min-width: 220px; background: var(--surface); border: 1px solid var(--border);
+      color: #fff; padding: 10px 14px; border-radius: 8px; font-size: 0.95rem; outline: none;
+    }
+    .search-box:focus { border-color: var(--primary); }
+
+    /* Categories & Rows */
+    main { padding: 16px 20px 60px; }
+    .row { margin-bottom: 28px; }
+    .row-title { font-size: 1.15rem; font-weight: 800; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .row-title::before { content: ""; width: 4px; height: 18px; background: var(--primary); border-radius: 2px; }
+    .cards {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); gap: 14px;
+    }
+    .card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      padding: 14px; cursor: pointer; transition: transform 0.22s, border-color 0.22s, background 0.22s;
+      display: flex; flex-direction: column; justify-content: space-between; min-height: 125px; position: relative;
+    }
+    .card:hover, .card:active {
+      transform: translateY(-4px) scale(1.02); border-color: var(--primary); background: var(--surface-hover);
+    }
+    .card-logo {
+      width: 44px; height: 44px; border-radius: 8px; background: rgba(229,9,20,0.14);
+      color: var(--primary); display: flex; align-items: center; justify-content: center;
+      font-weight: 900; font-size: 1.1rem; margin-bottom: 10px; overflow: hidden;
+    }
+    .card-logo img { width: 100%; height: 100%; object-fit: cover; }
+    .card-name { font-weight: 700; font-size: 0.92rem; line-height: 1.35; }
+    .card-cat { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
+    .fav-btn {
+      position: absolute; top: 10px; left: 10px; background: transparent; border: none;
+      color: var(--muted); font-size: 1.1rem; cursor: pointer;
+    }
+    .fav-btn.active { color: #f5c518; }
+
+    /* Player Modal */
+    .player-overlay {
+      position: fixed; inset: 0; background: #000; z-index: 200;
+      display: none; flex-direction: column;
+    }
+    .player-overlay.open { display: flex; }
+    .player-top {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px 18px; background: rgba(20,20,24,0.95); border-bottom: 1px solid var(--border);
+    }
+    .player-body { flex: 1; display: flex; flex-direction: column; justify-content: center; background: #000; position: relative; }
+    video { width: 100%; max-height: 78vh; background: #000; outline: none; }
+    .player-status { text-align: center; color: var(--muted); font-size: 0.85rem; padding: 8px; }
+
+    /* Playlist Manager Modal */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.82); z-index: 300;
+      display: none; align-items: center; justify-content: center; padding: 16px;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+      width: 100%; max-width: 480px; padding: 22px; max-height: 90vh; overflow-y: auto;
+    }
+    .modal h2 { font-size: 1.25rem; margin-bottom: 14px; color: #fff; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+    .tab {
+      flex: 1; padding: 8px; text-align: center; background: #1d1d24; border-radius: 6px;
+      cursor: pointer; font-weight: 700; font-size: 0.85rem; color: var(--muted);
+    }
+    .tab.active { background: var(--primary); color: #fff; }
+    .field { margin-bottom: 12px; }
+    .field label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 5px; }
+    .field input {
+      width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border);
+      background: #0e0e12; color: #fff; font-size: 0.92rem;
+    }
+  </style>
+</head>
+<body>
+
+  <header id="navbar">
+    <div class="brand">KAKASHI <span>PLAYER</span></div>
+    <div class="nav-actions">
+      <button class="btn btn-primary" onclick="openModal()">+ إضافة قائمة</button>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="hero-content">
+      <span class="badge">KAKASHI IPTV • HD / 4K</span>
+      <h1 id="heroTitle">بث مباشر بدون حدود</h1>
+      <p id="heroDesc">شاهد قنواتك المفضلة والأفلام والمباريات بواجهة عصرية سريعة تدعم ملفات M3U وحسابات Xtream Codes.</p>
+      <div class="hero-btns">
+        <button class="btn btn-primary" onclick="playFeatured()">▶ تشغيل الآن</button>
+        <button class="btn btn-secondary" onclick="openModal()">⚙ إدارة القوائم</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="controls">
+    <input type="text" id="searchInput" class="search-box" placeholder="ابحث عن قناة أو باقة..." oninput="renderChannels()" />
+  </div>
+
+  <main id="channelsContainer"></main>
+
+  <!-- Video Player -->
+  <div class="player-overlay" id="playerOverlay">
+    <div class="player-top">
+      <div style="font-weight:800;" id="nowPlayingTitle">KAKASHI PLAYER</div>
+      <button class="btn btn-secondary" onclick="closePlayer()">✕ إغلاق</button>
+    </div>
+    <div class="player-body">
+      <video id="videoPlayer" controls playsinline autoplay></video>
+      <div class="player-status" id="playerStatus">جاهز للتشغيل</div>
+    </div>
+  </div>
+
+  <!-- Add Playlist Modal -->
+  <div class="modal-backdrop" id="playlistModal">
+    <div class="modal">
+      <h2>إضافة قائمة IPTV</h2>
+      <div class="tabs">
+        <div class="tab active" id="tabM3u" onclick="switchTab('m3u')">رابط / ملف M3U</div>
+        <div class="tab" id="tabXtream" onclick="switchTab('xtream')">Xtream Codes</div>
+      </div>
+
+      <div id="m3uForm">
+        <div class="field">
+          <label>رابط M3U / M3U8</label>
+          <input type="url" id="m3uUrl" placeholder="http://example.com/get.php?username=..." />
+        </div>
+        <div class="field">
+          <label>أو اختر ملف من الجهاز (.m3u / .m3u8)</label>
+          <input type="file" id="m3uFile" accept=".m3u,.m3u8,.txt" />
+        </div>
+        <button class="btn btn-primary" style="width:100%; justify-content:center;" onclick="loadM3U()">تحميل القنوات</button>
+      </div>
+
+      <div id="xtreamForm" style="display:none;">
+        <div class="field">
+          <label>رابط السيرفر (Host URL)</label>
+          <input type="url" id="xtHost" placeholder="http://server.com:8080" />
+        </div>
+        <div class="field">
+          <label>اسم المستخدم (Username)</label>
+          <input type="text" id="xtUser" placeholder="Username" />
+        </div>
+        <div class="field">
+          <label>كلمة المرور (Password)</label>
+          <input type="password" id="xtPass" placeholder="Password" />
+        </div>
+        <button class="btn btn-primary" style="width:100%; justify-content:center;" onclick="loadXtream()">تسجيل الدخول وجلب القنوات</button>
+      </div>
+
+      <button class="btn btn-secondary" style="width:100%; justify-content:center; margin-top:10px;" onclick="closeModal()">إلغاء</button>
+    </div>
+  </div>
+
+  <script>
+    const DEFAULT_CHANNELS = [
+      { name: "KAKASHI Sports 4K (تجريبي)", category: "رياضة", url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", logo: "" },
+      { name: "KAKASHI Movies HD (تجريبي)", category: "أفلام", url: "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8", logo: "" },
+      { name: "KAKASHI News Live (تجريبي)", category: "أخبار", url: "https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8", logo: "" },
+      { name: "KAKASHI Documentary (تجريبي)", category: "وثائقي", url: "https://moctobpltc-i.akamaihd.net/hls/live/571329/eight/playlist.m3u8", logo: "" }
+    ];
+
+    let channels = JSON.parse(localStorage.getItem('kakashi_channels') || 'null') || DEFAULT_CHANNELS;
+    let favorites = JSON.parse(localStorage.getItem('kakashi_favs') || '[]');
+    let hls = null;
+
+    window.addEventListener('scroll', () => {
+      document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 30);
+    });
+
+    function toggleFav(e, url) {
+      e.stopPropagation();
+      if (favorites.includes(url)) favorites = favorites.filter(u => u !== url);
+      else favorites.push(url);
+      localStorage.setItem('kakashi_favs', JSON.stringify(favorites));
+      renderChannels();
+    }
+
+    function renderChannels() {
+      const q = document.getElementById('searchInput').value.trim().toLowerCase();
+      const container = document.getElementById('channelsContainer');
+      container.innerHTML = '';
+
+      const filtered = channels.filter(c => c.name.toLowerCase().includes(q) || c.category.toLowerCase().includes(q));
+      const groups = {};
+
+      const favList = filtered.filter(c => favorites.includes(c.url));
+      if (favList.length) groups['★ المفضلة'] = favList;
+
+      filtered.forEach(c => {
+        const cat = c.category || 'قنوات عامة';
+        if (!groups[cat]) groups[cat] = [];
+        groups[cat].push(c);
+      });
+
+      Object.keys(groups).forEach(cat => {
+        const row = document.createElement('div');
+        row.className = 'row';
+        row.innerHTML = `<div class="row-title">${cat} (${groups[cat].length})</div>`;
+        const grid = document.createElement('div');
+        grid.className = 'cards';
+
+        groups[cat].slice(0, 60).forEach(ch => {
+          const isFav = favorites.includes(ch.url);
+          const card = document.createElement('div');
+          card.className = 'card';
+          card.onclick = () => playChannel(ch);
+          card.innerHTML = `
+            <button class="fav-btn ${isFav ? 'active' : ''}" onclick="toggleFav(event, '${ch.url.replace(/'/g, "\'")}')">★</button>
+            <div class="card-logo">${ch.logo ? `<img src="${ch.logo}" onerror="this.style.display='none'">` : 'KP'}</div>
+            <div>
+              <div class="card-name">${ch.name}</div>
+              <div class="card-cat">${ch.category}</div>
+            </div>
+          `;
+          grid.appendChild(card);
+        });
+        row.appendChild(grid);
+        container.appendChild(row);
+      });
+    }
+
+    function playFeatured() {
+      if (channels.length) playChannel(channels[0]);
+    }
+
+    function playChannel(ch) {
+      const overlay = document.getElementById('playerOverlay');
+      const video = document.getElementById('videoPlayer');
+      const status = document.getElementById('playerStatus');
+      document.getElementById('nowPlayingTitle').textContent = ch.name;
+      overlay.classList.add('open');
+      status.textContent = 'جاري الاتصال بالبث...';
+
+      if (hls) { hls.destroy(); hls = null; }
+
+      if (Hls.isSupported() && ch.url.includes('.m3u8')) {
+        hls = new Hls();
+        hls.loadSource(ch.url);
+        hls.attachMedia(video);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          video.play().catch(() => {});
+          status.textContent = 'يعمل الآن • KAKASHI PLAYER';
+        });
+        hls.on(Hls.Events.ERROR, (_, data) => {
+          if (data.fatal) status.textContent = 'تعذر تشغيل البث، تأكد من صلاحية الرابط.';
+        });
+      } else {
+        video.src = ch.url;
+        video.play().then(() => status.textContent = 'يعمل الآن').catch(() => status.textContent = 'اضغط تشغيل لبدء البث');
+      }
+    }
+
+    function closePlayer() {
+      const video = document.getElementById('videoPlayer');
+      video.pause();
+      video.src = '';
+      if (hls) { hls.destroy(); hls = null; }
+      document.getElementById('playerOverlay').classList.remove('open');
+    }
+
+    function openModal() { document.getElementById('playlistModal').classList.add('open'); }
+    function closeModal() { document.getElementById('playlistModal').classList.remove('open'); }
+
+    function switchTab(tab) {
+      document.getElementById('tabM3u').classList.toggle('active', tab === 'm3u');
+      document.getElementById('tabXtream').classList.toggle('active', tab === 'xtream');
+      document.getElementById('m3uForm').style.display = tab === 'm3u' ? 'block' : 'none';
+      document.getElementById('xtreamForm').style.display = tab === 'xtream' ? 'block' : 'none';
+    }
+
+    function parseM3U(text) {
+      const lines = text.split(/\r?\n/);
+      const list = [];
+      let current = null;
+      for (let line of lines) {
+        line = line.trim();
+        if (line.startsWith('#EXTINF:')) {
+          const nameMatch = line.split(',').pop();
+          const catMatch = line.match(/group-title="([^"]*)"/i);
+          const logoMatch = line.match(/tvg-logo="([^"]*)"/i);
+          current = {
+            name: nameMatch ? nameMatch.trim() : 'قناة بدون اسم',
+            category: catMatch ? catMatch[1] : 'قنوات منوعة',
+            logo: logoMatch ? logoMatch[1] : ''
+          };
+        } else if (line && !line.startsWith('#') && current) {
+          current.url = line;
+          list.push(current);
+          current = null;
+        }
+      }
+      if (list.length) {
+        channels = list;
+        localStorage.setItem('kakashi_channels', JSON.stringify(channels));
+        renderChannels();
+        closeModal();
+      } else {
+        alert('لم يتم العثور على قنوات صالحة داخل الملف.');
+      }
+    }
+
+    async function loadM3U() {
+      const fileInput = document.getElementById('m3uFile');
+      const urlInput = document.getElementById('m3uUrl').value.trim();
+      if (fileInput.files.length) {
+        const text = await fileInput.files[0].text();
+        parseM3U(text);
+      } else if (urlInput) {
+        try {
+          const res = await fetch(urlInput);
+          const text = await res.text();
+          parseM3U(text);
+        } catch (e) {
+          alert('تعذر جلب الرابط مباشرة بسبب قيود الشبكة، جرب تحميل ملف M3U ورفعه هنا.');
+        }
+      }
+    }
+
+    function loadXtream() {
+      const host = document.getElementById('xtHost').value.trim().replace(/\/$/, '');
+      const user = document.getElementById('xtUser').value.trim();
+      const pass = document.getElementById('xtPass').value.trim();
+      if (!host || !user || !pass) return alert('يرجى إدخال جميع البيانات');
+      document.getElementById('m3uUrl').value = `${host}/get.php?username=${encodeURIComponent(user)}&password=${encodeURIComponent(pass)}&type=m3u_plus&output=m3u8`;
+      switchTab('m3u');
+      loadM3U();
+    }
+
+    renderChannels();
+  </script>
+</body>
+</html>
